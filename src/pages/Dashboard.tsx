@@ -9,7 +9,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
-
 interface Category {
   id: string;
   name: string;
@@ -17,20 +16,17 @@ interface Category {
   totalGoals: number;
   completedGoals: number;
 }
-
 export default function Dashboard() {
-  const { user, signOut } = useAuth();
+  const {
+    user,
+    signOut
+  } = useAuth();
   const navigate = useNavigate();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
-
-  const colors = [
-    '#8B5CF6', '#3B82F6', '#10B981', '#F59E0B', '#EF4444', 
-    '#EC4899', '#6366F1', '#14B8A6', '#F97316'
-  ];
-
+  const colors = ['#8B5CF6', '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#EC4899', '#6366F1', '#14B8A6', '#F97316'];
   useEffect(() => {
     if (user) {
       fetchCategories();
@@ -40,58 +36,40 @@ export default function Dashboard() {
   // Set up realtime subscription for categories
   useEffect(() => {
     if (!user) return;
-
-    const channel = supabase
-      .channel('categories-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'categories',
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => {
-          console.log('Realtime category update');
-          fetchCategories();
-        }
-      )
-      .subscribe();
-
+    const channel = supabase.channel('categories-changes').on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'categories',
+      filter: `user_id=eq.${user.id}`
+    }, () => {
+      console.log('Realtime category update');
+      fetchCategories();
+    }).subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
   }, [user]);
-
   const fetchCategories = async () => {
     try {
-      const { data: categoriesData, error: categoriesError } = await supabase
-        .from('categories')
-        .select('*')
-        .eq('user_id', user?.id);
-
+      const {
+        data: categoriesData,
+        error: categoriesError
+      } = await supabase.from('categories').select('*').eq('user_id', user?.id);
       if (categoriesError) throw categoriesError;
-
-      const categoriesWithStats = await Promise.all(
-        (categoriesData || []).map(async (category) => {
-          const { data: goalsData } = await supabase
-            .from('goals')
-            .select('completed')
-            .eq('category_id', category.id);
-
-          const totalGoals = goalsData?.length || 0;
-          const completedGoals = goalsData?.filter(g => g.completed).length || 0;
-
-          return {
-            id: category.id,
-            name: category.name,
-            color: category.color,
-            totalGoals,
-            completedGoals,
-          };
-        })
-      );
-
+      const categoriesWithStats = await Promise.all((categoriesData || []).map(async category => {
+        const {
+          data: goalsData
+        } = await supabase.from('goals').select('completed').eq('category_id', category.id);
+        const totalGoals = goalsData?.length || 0;
+        const completedGoals = goalsData?.filter(g => g.completed).length || 0;
+        return {
+          id: category.id,
+          name: category.name,
+          color: category.color,
+          totalGoals,
+          completedGoals
+        };
+      }));
       setCategories(categoriesWithStats);
     } catch (error: any) {
       toast.error('Failed to load categories');
@@ -99,27 +77,20 @@ export default function Dashboard() {
       setLoading(false);
     }
   };
-
   const handleCreateCategory = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!newCategoryName.trim()) {
       toast.error('Please enter a category name');
       return;
     }
-
     const randomColor = colors[Math.floor(Math.random() * colors.length)];
-
-    const { error } = await supabase
-      .from('categories')
-      .insert([
-        {
-          user_id: user?.id,
-          name: newCategoryName,
-          color: randomColor,
-        },
-      ]);
-
+    const {
+      error
+    } = await supabase.from('categories').insert([{
+      user_id: user?.id,
+      name: newCategoryName,
+      color: randomColor
+    }]);
     if (error) {
       toast.error('Failed to create category');
     } else {
@@ -129,9 +100,7 @@ export default function Dashboard() {
       fetchCategories();
     }
   };
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
+  return <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
       {/* Header */}
       <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4">
@@ -141,26 +110,18 @@ export default function Dashboard() {
                 <Target className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold">GoalTracker</h1>
+                <h1 className="text-2xl font-bold text-slate-950">GoalTracker by Divyam Jangra</h1>
                 <p className="text-sm text-muted-foreground">
                   Welcome back, {user?.email?.split('@')[0]}!
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate('/progress')}
-              >
+              <Button variant="outline" size="sm" onClick={() => navigate('/progress')}>
                 <BarChart3 className="h-4 w-4 mr-2" />
                 Progress
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={signOut}
-              >
+              <Button variant="ghost" size="sm" onClick={signOut}>
                 <LogOut className="h-4 w-4 mr-2" />
                 Sign Out
               </Button>
@@ -196,13 +157,7 @@ export default function Dashboard() {
               <form onSubmit={handleCreateCategory} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="category-name">Category Name</Label>
-                  <Input
-                    id="category-name"
-                    placeholder="e.g., Work, Gym, Family"
-                    value={newCategoryName}
-                    onChange={(e) => setNewCategoryName(e.target.value)}
-                    required
-                  />
+                  <Input id="category-name" placeholder="e.g., Work, Gym, Family" value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} required />
                 </div>
                 <Button type="submit" className="w-full bg-gradient-primary">
                   Create Category
@@ -212,14 +167,9 @@ export default function Dashboard() {
           </Dialog>
         </div>
 
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-48 rounded-2xl bg-muted animate-pulse" />
-            ))}
-          </div>
-        ) : categories.length === 0 ? (
-          <div className="text-center py-16">
+        {loading ? <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3].map(i => <div key={i} className="h-48 rounded-2xl bg-muted animate-pulse" />)}
+          </div> : categories.length === 0 ? <div className="text-center py-16">
             <Target className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
             <h3 className="text-xl font-semibold mb-2">No categories yet</h3>
             <p className="text-muted-foreground mb-6">
@@ -229,34 +179,20 @@ export default function Dashboard() {
               <Plus className="h-4 w-4 mr-2" />
               Create Category
             </Button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {categories.map((category) => (
-              <CategoryCard key={category.id} {...category} />
-            ))}
-          </div>
-        )}
+          </div> : <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {categories.map(category => <CategoryCard key={category.id} {...category} />)}
+          </div>}
       </main>
-    </div>
-  );
+    </div>;
 }
-
-function Target({ className }: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
+function Target({
+  className
+}: {
+  className?: string;
+}) {
+  return <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
       <circle cx="12" cy="12" r="10" />
       <circle cx="12" cy="12" r="6" />
       <circle cx="12" cy="12" r="2" />
-    </svg>
-  );
+    </svg>;
 }
