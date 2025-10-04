@@ -23,18 +23,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+        
+        // Sync goals when user signs in
+        if (event === 'SIGNED_IN' && session) {
+          try {
+            await supabase.functions.invoke('sync-goals');
+          } catch (error) {
+            console.error('Error syncing goals:', error);
+          }
+        }
       }
     );
 
     // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+      
+      // Sync goals on app load if user is logged in
+      if (session) {
+        try {
+          await supabase.functions.invoke('sync-goals');
+        } catch (error) {
+          console.error('Error syncing goals:', error);
+        }
+      }
     });
 
     return () => subscription.unsubscribe();

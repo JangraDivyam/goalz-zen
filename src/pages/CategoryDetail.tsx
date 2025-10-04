@@ -41,6 +41,32 @@ export default function CategoryDetail() {
     }
   }, [user, id]);
 
+  // Set up realtime subscription for goals
+  useEffect(() => {
+    if (!id) return;
+
+    const channel = supabase
+      .channel(`goals-${id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'goals',
+          filter: `category_id=eq.${id}`,
+        },
+        (payload) => {
+          console.log('Realtime goal update:', payload);
+          fetchCategoryAndGoals();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [id]);
+
   const fetchCategoryAndGoals = async () => {
     try {
       const { data: categoryData, error: categoryError } = await supabase

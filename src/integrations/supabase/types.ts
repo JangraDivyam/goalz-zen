@@ -57,8 +57,10 @@ export type Database = {
           created_at: string | null
           goal_date: string | null
           id: string
+          month_start_date: string | null
           timeframe: string
           title: string
+          week_start_date: string | null
         }
         Insert: {
           category_id: string
@@ -67,8 +69,10 @@ export type Database = {
           created_at?: string | null
           goal_date?: string | null
           id?: string
+          month_start_date?: string | null
           timeframe: string
           title: string
+          week_start_date?: string | null
         }
         Update: {
           category_id?: string
@@ -77,8 +81,10 @@ export type Database = {
           created_at?: string | null
           goal_date?: string | null
           id?: string
+          month_start_date?: string | null
           timeframe?: string
           title?: string
+          week_start_date?: string | null
         }
         Relationships: [
           {

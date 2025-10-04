@@ -37,6 +37,32 @@ export default function Dashboard() {
     }
   }, [user]);
 
+  // Set up realtime subscription for categories
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('categories-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'categories',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          console.log('Realtime category update');
+          fetchCategories();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
   const fetchCategories = async () => {
     try {
       const { data: categoriesData, error: categoriesError } = await supabase
