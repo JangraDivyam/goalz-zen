@@ -4,9 +4,24 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, TrendingUp, Target, CheckCircle2, Calendar } from 'lucide-react';
+import { ArrowLeft, TrendingUp, Target, CheckCircle2, Calendar as CalendarIcon } from 'lucide-react';
 import { Progress as ProgressBar } from '@/components/ui/progress';
 import { toast } from 'sonner';
+import { Calendar } from '@/components/ui/calendar';
+import DailyProgressChart from '@/components/DailyProgressChart';
+import WeeklyProgressChart from '@/components/WeeklyProgressChart';
+import MonthlyProgressChart from '@/components/MonthlyProgressChart';
+
+interface Goal {
+  id: string;
+  title: string;
+  completed: boolean;
+  timeframe: 'daily' | 'weekly' | 'monthly';
+  goal_date?: string;
+  week_start_date?: string;
+  month_start_date?: string;
+  category_id: string;
+}
 
 interface Stats {
   totalCategories: number;
@@ -20,6 +35,8 @@ interface Stats {
 export default function Progress() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [allGoals, setAllGoals] = useState<Goal[]>([]);
   const [stats, setStats] = useState<Stats>({
     totalCategories: 0,
     totalGoals: 0,
@@ -49,10 +66,12 @@ export default function Progress() {
       // Fetch all goals
       const { data: goalsData, error: goalsError } = await supabase
         .from('goals')
-        .select('timeframe, completed, category_id')
+        .select('*')
         .in('category_id', categoriesData?.map(c => c.id) || []);
 
       if (goalsError) throw goalsError;
+
+      setAllGoals((goalsData || []) as Goal[]);
 
       const totalGoals = goalsData?.length || 0;
       const completedGoals = goalsData?.filter(g => g.completed).length || 0;
@@ -185,12 +204,70 @@ export default function Progress() {
             </div>
 
             {/* Timeframe Progress */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+              <Card className="border-0 shadow-card lg:col-span-2">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CalendarIcon className="h-5 w-5 text-primary" />
+                    Date-Specific Progress
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <DailyProgressChart goals={allGoals} selectedDate={selectedDate} />
+                    <WeeklyProgressChart goals={allGoals} selectedDate={selectedDate} />
+                    <MonthlyProgressChart goals={allGoals} selectedDate={selectedDate} />
+                  </div>
+                  <div className="mt-4 text-center">
+                    <p className="text-sm text-muted-foreground">
+                      Showing progress for: <span className="font-semibold text-foreground">
+                        {selectedDate.toLocaleDateString('en-US', { 
+                          weekday: 'long',
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
+                        })}
+                      </span>
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-0 shadow-card">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CalendarIcon className="h-5 w-5" />
+                    Select Date
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={(date) => setSelectedDate(date || new Date())}
+                    className="rounded-md border pointer-events-auto"
+                  />
+                  {selectedDate.toDateString() !== new Date().toDateString() && (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setSelectedDate(new Date())}
+                      className="mt-4 w-full"
+                    >
+                      Back to Today
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Overall Timeframe Progress */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <Card className="border-0 shadow-card">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Calendar className="h-5 w-5 text-primary" />
-                    Daily Goals
+                    <CalendarIcon className="h-5 w-5 text-primary" />
+                    All Daily Goals
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
@@ -205,8 +282,8 @@ export default function Progress() {
               <Card className="border-0 shadow-card">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Calendar className="h-5 w-5 text-secondary" />
-                    Weekly Goals
+                    <CalendarIcon className="h-5 w-5 text-secondary" />
+                    All Weekly Goals
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
@@ -221,8 +298,8 @@ export default function Progress() {
               <Card className="border-0 shadow-card">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Calendar className="h-5 w-5 text-accent" />
-                    Monthly Goals
+                    <CalendarIcon className="h-5 w-5 text-accent" />
+                    All Monthly Goals
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">

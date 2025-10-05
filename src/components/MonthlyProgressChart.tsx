@@ -7,14 +7,24 @@ interface Goal {
   title: string;
   completed: boolean;
   timeframe: 'daily' | 'weekly' | 'monthly';
+  month_start_date?: string;
 }
 
 interface MonthlyProgressChartProps {
   goals: Goal[];
+  selectedDate?: Date;
 }
 
-export default function MonthlyProgressChart({ goals: allGoals }: MonthlyProgressChartProps) {
-  const goals = allGoals.filter(g => g.timeframe === 'monthly');
+export default function MonthlyProgressChart({ goals: allGoals, selectedDate }: MonthlyProgressChartProps) {
+  let goals = allGoals.filter(g => g.timeframe === 'monthly');
+  
+  // Filter by selected date's month if provided
+  if (selectedDate) {
+    const monthStart = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+    const monthStartStr = monthStart.toISOString().split('T')[0];
+    goals = goals.filter(g => g.month_start_date?.split('T')[0] === monthStartStr);
+  }
+  
   const completed = goals.filter(g => g.completed).length;
   const incomplete = goals.length - completed;
 

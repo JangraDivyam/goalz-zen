@@ -7,14 +7,26 @@ interface Goal {
   title: string;
   completed: boolean;
   timeframe: 'daily' | 'weekly' | 'monthly';
+  week_start_date?: string;
+  month_start_date?: string;
 }
 
 interface WeeklyProgressChartProps {
   goals: Goal[];
+  selectedDate?: Date;
 }
 
-export default function WeeklyProgressChart({ goals: allGoals }: WeeklyProgressChartProps) {
-  const goals = allGoals.filter(g => g.timeframe === 'weekly');
+export default function WeeklyProgressChart({ goals: allGoals, selectedDate }: WeeklyProgressChartProps) {
+  let goals = allGoals.filter(g => g.timeframe === 'weekly');
+  
+  // Filter by selected date's week if provided
+  if (selectedDate) {
+    const weekStart = new Date(selectedDate);
+    weekStart.setDate(selectedDate.getDate() - selectedDate.getDay());
+    const weekStartStr = weekStart.toISOString().split('T')[0];
+    goals = goals.filter(g => g.week_start_date?.split('T')[0] === weekStartStr);
+  }
+  
   const completed = goals.filter(g => g.completed).length;
   const incomplete = goals.length - completed;
 

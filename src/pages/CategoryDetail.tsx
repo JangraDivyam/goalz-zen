@@ -22,6 +22,8 @@ interface Goal {
   timeframe: 'daily' | 'weekly' | 'monthly';
   goal_date: string;
   completed_at: string | null;
+  week_start_date?: string;
+  month_start_date?: string;
 }
 
 interface Category {
@@ -40,6 +42,7 @@ export default function CategoryDetail() {
   const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [timeRemaining, setTimeRemaining] = useState({
     hoursLeftToday: 0,
     daysLeftThisWeek: 0,
@@ -155,16 +158,28 @@ export default function CategoryDetail() {
     
     if (!newGoal.trim()) return;
 
+    const goalData: any = {
+      category_id: id,
+      title: newGoal,
+      timeframe: activeTab,
+      completed: false,
+    };
+
+    // Set appropriate date fields based on timeframe and selected date
+    if (activeTab === 'daily') {
+      goalData.goal_date = selectedDate.toISOString().split('T')[0];
+    } else if (activeTab === 'weekly') {
+      const weekStart = new Date(selectedDate);
+      weekStart.setDate(selectedDate.getDate() - selectedDate.getDay());
+      goalData.week_start_date = weekStart.toISOString().split('T')[0];
+    } else if (activeTab === 'monthly') {
+      const monthStart = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+      goalData.month_start_date = monthStart.toISOString().split('T')[0];
+    }
+
     const { error } = await supabase
       .from('goals')
-      .insert([
-        {
-          category_id: id,
-          title: newGoal,
-          timeframe: activeTab,
-          completed: false,
-        },
-      ]);
+      .insert([goalData]);
 
     if (error) {
       toast.error('Failed to add goal');
@@ -205,7 +220,27 @@ export default function CategoryDetail() {
     }
   };
 
-  const filteredGoals = goals.filter(goal => goal.timeframe === activeTab);
+  const filteredGoals = goals.filter(goal => {
+    if (goal.timeframe !== activeTab) return false;
+    
+    // Filter by selected date
+    const selectedDateStr = selectedDate.toISOString().split('T')[0];
+    
+    if (activeTab === 'daily') {
+      return goal.goal_date?.split('T')[0] === selectedDateStr;
+    } else if (activeTab === 'weekly') {
+      const weekStart = new Date(selectedDate);
+      weekStart.setDate(selectedDate.getDate() - selectedDate.getDay());
+      const weekStartStr = weekStart.toISOString().split('T')[0];
+      return goal.week_start_date?.split('T')[0] === weekStartStr;
+    } else if (activeTab === 'monthly') {
+      const monthStart = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+      const monthStartStr = monthStart.toISOString().split('T')[0];
+      return goal.month_start_date?.split('T')[0] === monthStartStr;
+    }
+    
+    return false;
+  });
   const completedCount = filteredGoals.filter(g => g.completed).length;
   const progress = filteredGoals.length > 0 ? (completedCount / filteredGoals.length) * 100 : 0;
 
@@ -270,19 +305,19 @@ export default function CategoryDetail() {
             {/* Progress Charts */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="space-y-2">
-                <DailyProgressChart goals={goals} />
+                <DailyProgressChart goals={goals} selectedDate={selectedDate} />
                 <p className="text-xs text-muted-foreground text-center">
                   Hours left today: <span className="font-semibold text-foreground">{timeRemaining.hoursLeftToday}h</span>
                 </p>
               </div>
               <div className="space-y-2">
-                <WeeklyProgressChart goals={goals} />
+                <WeeklyProgressChart goals={goals} selectedDate={selectedDate} />
                 <p className="text-xs text-muted-foreground text-center">
                   Days left this week: <span className="font-semibold text-foreground">{timeRemaining.daysLeftThisWeek}d</span>
                 </p>
               </div>
               <div className="space-y-2">
-                <MonthlyProgressChart goals={goals} />
+                <MonthlyProgressChart goals={goals} selectedDate={selectedDate} />
                 <p className="text-xs text-muted-foreground text-center">
                   Days left this month: <span className="font-semibold text-foreground">{timeRemaining.daysLeftThisMonth}d</span>
                 </p>
@@ -292,7 +327,39 @@ export default function CategoryDetail() {
 
           {/* Right Column - Calendar */}
           <div className="lg:col-span-1">
-            <CalendarProgress goals={goals} currentDate={currentDate} />
+            <CalendarProgress 
+              goals={goals} 
+              currentDate={currentDate} 
+              selectedDate={selectedDate}
+              onSelectDate={setSelectedDate}
+            />
+            <Card className="border-0 shadow-card mt-4">
+              <CardContent className="pt-6">
+                <div className="text-center space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Viewing data for:
+                  </p>
+                  <p className="text-lg font-bold">
+                    {selectedDate.toLocaleDateString('en-US', { 
+                      weekday: 'long',
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
+                    })}
+                  </p>
+                  {selectedDate.toDateString() !== currentDate.toDateString() && (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setSelectedDate(currentDate)}
+                      className="mt-2"
+                    >
+                      Back to Today
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
 
@@ -308,15 +375,22 @@ export default function CategoryDetail() {
             {/* Add Goal Form */}
             <Card className="border-0 shadow-card">
               <CardContent className="pt-6">
-                <form onSubmit={handleAddGoal} className="flex gap-2">
-                  <Input
-                    placeholder={`Add a new ${activeTab} goal...`}
-                    value={newGoal}
-                    onChange={(e) => setNewGoal(e.target.value)}
-                  />
-                  <Button type="submit" className="bg-gradient-primary">
-                    <Plus className="h-4 w-4" />
-                  </Button>
+                <form onSubmit={handleAddGoal} className="space-y-3">
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder={`Add a new ${activeTab} goal for ${selectedDate.toLocaleDateString()}...`}
+                      value={newGoal}
+                      onChange={(e) => setNewGoal(e.target.value)}
+                    />
+                    <Button type="submit" className="bg-gradient-primary">
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  {selectedDate.toDateString() !== currentDate.toDateString() && (
+                    <p className="text-xs text-muted-foreground">
+                      Adding goal for selected date: {selectedDate.toLocaleDateString()}
+                    </p>
+                  )}
                 </form>
               </CardContent>
             </Card>
