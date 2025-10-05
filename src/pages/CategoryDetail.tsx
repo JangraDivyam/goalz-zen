@@ -40,6 +40,11 @@ export default function CategoryDetail() {
   const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [timeRemaining, setTimeRemaining] = useState({
+    hoursLeftToday: 0,
+    daysLeftThisWeek: 0,
+    daysLeftThisMonth: 0,
+  });
 
   useEffect(() => {
     if (user && id) {
@@ -59,6 +64,37 @@ export default function CategoryDetail() {
       console.error('Error syncing goals:', error);
     }
   };
+
+  // Calculate time remaining and update every minute
+  useEffect(() => {
+    const calculateTimeRemaining = () => {
+      const now = new Date();
+      
+      // Hours left today
+      const endOfDay = new Date(now);
+      endOfDay.setHours(23, 59, 59, 999);
+      const hoursLeft = Math.ceil((endOfDay.getTime() - now.getTime()) / (1000 * 60 * 60));
+      
+      // Days left this week (Sunday is end of week)
+      const currentDay = now.getDay(); // 0 = Sunday, 6 = Saturday
+      const daysUntilSunday = currentDay === 0 ? 0 : 7 - currentDay;
+      
+      // Days left this month
+      const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      const daysLeftMonth = lastDayOfMonth - now.getDate() + 1;
+      
+      setTimeRemaining({
+        hoursLeftToday: hoursLeft,
+        daysLeftThisWeek: daysUntilSunday,
+        daysLeftThisMonth: daysLeftMonth,
+      });
+    };
+
+    calculateTimeRemaining();
+    const interval = setInterval(calculateTimeRemaining, 60000); // Update every minute
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Set up realtime subscription for goals
   useEffect(() => {
@@ -233,9 +269,24 @@ export default function CategoryDetail() {
 
             {/* Progress Charts */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <DailyProgressChart goals={goals} />
-              <WeeklyProgressChart goals={goals} />
-              <MonthlyProgressChart goals={goals} />
+              <div className="space-y-2">
+                <DailyProgressChart goals={goals} />
+                <p className="text-xs text-muted-foreground text-center">
+                  Hours left today: <span className="font-semibold text-foreground">{timeRemaining.hoursLeftToday}h</span>
+                </p>
+              </div>
+              <div className="space-y-2">
+                <WeeklyProgressChart goals={goals} />
+                <p className="text-xs text-muted-foreground text-center">
+                  Days left this week: <span className="font-semibold text-foreground">{timeRemaining.daysLeftThisWeek}d</span>
+                </p>
+              </div>
+              <div className="space-y-2">
+                <MonthlyProgressChart goals={goals} />
+                <p className="text-xs text-muted-foreground text-center">
+                  Days left this month: <span className="font-semibold text-foreground">{timeRemaining.daysLeftThisMonth}d</span>
+                </p>
+              </div>
             </div>
           </div>
 
