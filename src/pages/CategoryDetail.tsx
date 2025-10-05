@@ -10,6 +10,10 @@ import { ArrowLeft, Plus, Trash2, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
+import CalendarProgress from '@/components/CalendarProgress';
+import DailyProgressChart from '@/components/DailyProgressChart';
+import WeeklyProgressChart from '@/components/WeeklyProgressChart';
+import MonthlyProgressChart from '@/components/MonthlyProgressChart';
 
 interface Goal {
   id: string;
@@ -17,6 +21,7 @@ interface Goal {
   completed: boolean;
   timeframe: 'daily' | 'weekly' | 'monthly';
   goal_date: string;
+  completed_at: string | null;
 }
 
 interface Category {
@@ -34,12 +39,26 @@ export default function CategoryDetail() {
   const [newGoal, setNewGoal] = useState('');
   const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [loading, setLoading] = useState(true);
+  const [currentDate, setCurrentDate] = useState(new Date());
 
   useEffect(() => {
     if (user && id) {
       fetchCategoryAndGoals();
+      syncGoals();
     }
   }, [user, id]);
+
+  const syncGoals = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-goals');
+      if (error) throw error;
+      if (data?.currentDate) {
+        setCurrentDate(new Date(data.currentDate));
+      }
+    } catch (error) {
+      console.error('Error syncing goals:', error);
+    }
+  };
 
   // Set up realtime subscription for goals
   useEffect(() => {
@@ -188,26 +207,43 @@ export default function CategoryDetail() {
       </header>
 
       <main className="container mx-auto px-4 py-8">
-        {/* Progress Overview */}
-        <Card className="mb-8 border-0 shadow-card">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Progress
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">
-                  {completedCount} of {filteredGoals.length} goals completed
-                </span>
-                <span className="font-semibold">{Math.round(progress)}%</span>
-              </div>
-              <Progress value={progress} className="h-3" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+          {/* Left Column - Progress Overview */}
+          <div className="lg:col-span-2 space-y-8">
+            {/* Progress Overview */}
+            <Card className="border-0 shadow-card">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Progress
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">
+                      {completedCount} of {filteredGoals.length} goals completed
+                    </span>
+                    <span className="font-semibold">{Math.round(progress)}%</span>
+                  </div>
+                  <Progress value={progress} className="h-3" />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Progress Charts */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <DailyProgressChart goals={goals} />
+              <WeeklyProgressChart goals={goals} />
+              <MonthlyProgressChart goals={goals} />
             </div>
-          </CardContent>
-        </Card>
+          </div>
+
+          {/* Right Column - Calendar */}
+          <div className="lg:col-span-1">
+            <CalendarProgress goals={goals} currentDate={currentDate} />
+          </div>
+        </div>
 
         {/* Goals Tabs */}
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
