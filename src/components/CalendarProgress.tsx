@@ -42,7 +42,7 @@ export default function CalendarProgress({ goals, currentDate, selectedDate, onS
       <div className={`relative w-full h-full flex items-center justify-center ${
         isToday ? 'bg-primary/10 rounded-full' : ''
       } ${isSelected ? 'ring-2 ring-primary rounded-full' : ''}`}>
-        <span className={`${isToday ? 'font-bold text-primary' : ''} ${isSelected ? 'font-bold' : ''}`}>
+        <span className={`${isToday ? 'font-bold text-primary' : 'text-foreground'} ${isSelected ? 'font-bold' : ''}`}>
           {props.date.getDate()}
         </span>
         {hasGoals && (
